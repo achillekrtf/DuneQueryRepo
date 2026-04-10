@@ -1,60 +1,92 @@
+"""Pull query SQL from Dune into the repo, organized by dashboard."""
 import os
+import sys
+import argparse
+import codecs
 import yaml
 from dune_client.client import DuneClient
 from dotenv import load_dotenv
-import sys
-import codecs
 
-# Set the default encoding to UTF-8
 sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(dotenv_path)
+ROOT = os.path.join(os.path.dirname(__file__), '..')
+load_dotenv(os.path.join(ROOT, '.env'))
 
 dune = DuneClient.from_env()
 
-# Read the queries.yml file
-queries_yml = os.path.join(os.path.dirname(__file__), '..', 'queries.yml')
-with open(queries_yml, 'r', encoding='utf-8') as file:
-    data = yaml.safe_load(file)
 
-# Extract the query_ids from the data
-query_ids = [id for id in data['query_ids']]
+def load_dashboards(dashboard_filter=None):
+    """Load dashboards.yml, optionally filtering to one dashboard."""
+    path = os.path.join(ROOT, 'dashboards.yml')
+    if not os.path.exists(path):
+        # Fallback to legacy queries.yml
+        legacy = os.path.join(ROOT, 'queries.yml')
+        with open(legacy, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        return {'legacy': {'query_ids': data['query_ids']}}
 
-for id in query_ids:
-    query = dune.get_query(id)
-    print('PROCESSING: query {}, {}'.format(query.base.query_id, query.base.name))
-        
-    # Check if query file exists in /queries folder
-    queries_path = os.path.join(os.path.dirname(__file__), '..', 'queries')
-    files = os.listdir(queries_path)
-    found_files = [file for file in files if str(id) == file.split('___')[-1].split('.')[0]]
+    with open(path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
 
-    if len(found_files) != 0:
-        # Update existing file
-        file_path = os.path.join(os.path.dirname(__file__), '..', 'queries', found_files[0])
-        
-        print('UPDATE: existing query file: {}'.format(found_files[0]))
-        with open(file_path, 'r+', encoding='utf-8') as file:
-            #if "query repo:" is in the file, then don't add the text header again
-            if '-- part of a query repo' in query.sql:
-                file.write(query.sql)
-            else:
-                file.write(f'-- part of a query repo\n-- query name: {query.base.name}\n-- query link: https://dune.com/queries/{query.base.query_id}\n\n\n{query.sql}')
-    else:
-        # Create new file and directories if they don't exist
-        new_file = f'{query.base.name.replace(" ", "_").lower()[:30]}___{query.base.query_id}.sql'
-        file_path = os.path.join(os.path.dirname(__file__), '..', 'queries', new_file)
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
+    dashboards = data.get('dashboards', {})
+    if dashboard_filter:
+        if dashboard_filter not in dashboards:
+            print(f'ERROR: dashboard "{dashboard_filter}" not found. Available: {list(dashboards.keys())}')
+            sys.exit(1)
+        return {dashboard_filter: dashboards[dashboard_filter]}
+    return dashboards
+
+
+def pull_query(query_id, dashboard_name, seen_ids):
+    """Pull a single query from Dune and write to disk."""
+    if query_id in seen_ids:
+        src = seen_ids[query_id]
+        print(f'  SKIP: query {query_id} already pulled for {src} (shared query)')
+        return
+    seen_ids[query_id] = dashboard_name
+
+    query = dune.get_query(query_id)
+    name = query.base.name
+    print(f'  PROCESSING: query {query_id}, {name}')
+
+    queries_dir = os.path.join(ROOT, 'queries', dashboard_name)
+    os.makedirs(queries_dir, exist_ok=True)
+
+    # Check if file already exists for this query ID
+    existing = [f for f in os.listdir(queries_dir) if str(query_id) == f.split('___')[-1].split('.')[0]]
+
+    safe_name = name.replace(' ', '_').lower()[:30]
+    filename = existing[0] if existing else f'{safe_name}___{query_id}.sql'
+    filepath = os.path.join(queries_dir, filename)
+
+    header = f'-- part of a query repo\n-- query name: {name}\n-- query link: https://dune.com/queries/{query_id}\n\n\n'
+
+    with open(filepath, 'w', encoding='utf-8') as f:
         if '-- part of a query repo' in query.sql:
-            print('WARNING!!! This query is part of a query repo')
-            with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(f'-- WARNING: this query may be part of multiple repos\n{query.sql}')
+            f.write(query.sql)
         else:
-            with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(f'-- part of a query repo\n-- query name: {query.base.name}\n-- query link: https://dune.com/queries/{query.base.query_id}\n\n\n{query.sql}')
-        print('CREATE: new query file: {}'.format(new_file))
+            f.write(header + query.sql)
 
-            
+    action = 'UPDATE' if existing else 'CREATE'
+    print(f'  {action}: {dashboard_name}/{filename}')
 
+
+def main():
+    parser = argparse.ArgumentParser(description='Pull queries from Dune into the repo')
+    parser.add_argument('--dashboard', '-d', help='Pull only this dashboard (default: all)')
+    args = parser.parse_args()
+
+    dashboards = load_dashboards(args.dashboard)
+    seen_ids = {}  # track shared queries across dashboards
+
+    for name, config in dashboards.items():
+        query_ids = config.get('query_ids', [])
+        print(f'\n=== Dashboard: {name} ({len(query_ids)} queries) ===')
+        for qid in query_ids:
+            pull_query(qid, name, seen_ids)
+
+    print(f'\nDone. Pulled {len(seen_ids)} unique queries.')
+
+
+if __name__ == '__main__':
+    main()

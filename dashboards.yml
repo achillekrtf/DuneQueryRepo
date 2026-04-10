@@ -1,0 +1,62 @@
+dashboards:
+  spiko-main:
+    url: https://dune.com/achillekrtf/spiko-dashboard
+    description: Main Spiko tokenized fund analytics (35 queries)
+    query_ids:
+      # KPI Queries
+      - 6737375  # Total TVL
+      - 6737416  # TVL Growth (30d)
+      - 6737456  # Total Holders
+      - 6737468  # Holder Growth (30d)
+      - 6706994  # Active Wallets (30d)
+      # TVL by User
+      - 6706751  # USTBL TVL by user
+      - 6706737  # EUTBL TVL by user
+      - 6706770  # UKTBL TVL by user
+      - 6706785  # SPKCC TVL by user
+      - 6706775  # eurSPKCC TVL by user
+      - 6941111  # SAFO-USD TVL by user
+      - 6941193  # SAFO-EUR TVL by user
+      - 6941234  # SAFO-GBP/CHF TVL by user
+      # Avg/Median TVL
+      - 6743176  # USTBL avg/median
+      - 6743237  # EUTBL avg/median
+      - 6743243  # UKTBL avg/median
+      - 6743246  # SPKCC avg/median
+      - 6743252  # eurSPKCC avg/median
+      # Holding Period
+      - 6707437  # USTBL holding period
+      - 6707444  # EUTBL holding period
+      - 6707461  # UKTBL holding period
+      - 6707481  # SPKCC holding period
+      - 6707499  # eurSPKCC holding period
+      # SAFO Dashboard
+      - 6941175  # SAFO TVL timeseries
+      - 6941212  # SAFO holder distribution
+      - 6941280  # SAFO KPIs
+      # Competitive Analysis
+      - 6847260  # TVL Competitors timeseries
+      - 6803919  # Supply Competitors timeseries
+      - 6847440  # Mint/Burn Competitors
+      - 6747818  # Growth past 3 months
+      # Advanced Analytics
+      - 6846216  # Cohort analysis
+      - 6845718  # Retention
+      - 6845793  # TVL concentration
+      - 6846428  # Whale tracking
+      - 6845179  # TVL by product timeseries
+
+  test-dashboard:
+    url: https://dune.com/achillekrtf/test-dashboard
+    description: Test dashboard for Arbitrum and cross-chain metrics
+    query_ids:
+      - 6663391  # Net new TVL since 13th October 2025
+      - 6659119  # TVL by Spiko Product on Arbitrum (USD)
+      - 6674453  # Stellar Total TVL
+
+  spiko-x-stellar:
+    url: https://dune.com/achillekrtf/spiko-x-stellar
+    description: Spiko Stellar chain analytics
+    dashboard_id: 204407
+    query_ids:
+      - 6674453  # Stellar Total TVL (shared with test-dashboard)

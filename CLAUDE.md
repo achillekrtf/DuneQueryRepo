@@ -1,10 +1,43 @@
-# Spiko Dune Dashboard
+# Spiko Dune Dashboards
 
 ## Overview
-Analytics dashboard for Spiko's on-chain tokenized fund products across multiple blockchains. Contains 35 queries organized into 7 categories.
+Multi-dashboard repo for Spiko's on-chain analytics. Manages 3 dashboards defined in `dashboards.yml`.
+
+## Repo Structure
+```
+queries/
+  spiko-main/          # 35 queries - main tokenized fund dashboard
+  test-dashboard/      # 3 queries - Arbitrum + cross-chain metrics
+  spiko-x-stellar/     # Stellar chain analytics (shares queries)
+```
+
+## Scripts
+- `python scripts/pull_from_dune.py` - pull all dashboards
+- `python scripts/pull_from_dune.py -d spiko-main` - pull one dashboard
+- `python scripts/push_to_dune.py` - push all dashboards
+- `python scripts/push_to_dune.py -d test-dashboard` - push one dashboard
+
+Shared queries (same ID in multiple dashboards) are stored once; the first dashboard wins on pull.
 
 ## API Key
-Stored in `.env` (git-ignored). Use the Dune MCP tools (`mcp__dune__getDuneQuery`, `mcp__dune__updateDuneQuery`, `mcp__dune__executeQueryById`, `mcp__dune__getExecutionResults`) for all query operations. **Be conservative with executions — limited API credits.**
+Stored in `.env` (git-ignored). Use the Dune MCP tools (`mcp__dune__getDuneQuery`, `mcp__dune__updateDuneQuery`, `mcp__dune__executeQueryById`, `mcp__dune__getExecutionResults`) for all query operations. **Be conservative with executions -- limited API credits.**
+
+## Dashboards
+
+### spiko-main (35 queries)
+Main Spiko tokenized fund analytics across all chains.
+
+### test-dashboard (3 queries)
+| ID | Purpose |
+|----|---------|
+| 6663391 | Net new TVL since 13th October 2025 |
+| 6659119 | TVL by Spiko Product on Arbitrum (USD) |
+| 6674453 | Stellar Total TVL |
+
+### spiko-x-stellar (1 query)
+| ID | Purpose |
+|----|---------|
+| 6674453 | Stellar Total TVL (shared with test-dashboard) |
 
 ## Query Categories
 
@@ -152,7 +185,9 @@ WITH previous AS (
 This allows queries to build on their own prior results for efficiency.
 
 ## Known Issues
-1. **BUIDL omnibus rebalancing**: Contract `0x6a9da2d710bb9b700acde7cb81f10f1ff8c89041` creates large internal transfers that inflate mint/burn metrics in query 6847440
-2. **Growth 3m (6747818)**: Solana BENJI/OUSG may use wrong decimal divisor (1e6 vs 1e8); Starknet topic selector may not match actual Transfer events
-3. **CHF/USD hardcoded**: All queries use 1.13 — update if an oracle becomes available
-4. **Competitor queries (6847260, 6803919)**: Output raw token supply without NAV price conversion for non-Spiko tickers (by design — avoids oracle parsing bugs)
+1. **TVL by Product FX rate (6845179)**: Uses dead Ethereum Chainlink proxy addresses for EUR/USD and GBP/USD. These proxies don't emit AnswerUpdated events directly -- rates fall back to hardcoded 1.08 and 1.27. **Fix**: switch to Arbitrum Redstone oracles (`0x7AAeE6aD40a947A162DEAb5aFD0A1e12BE6FF871` EUR/USD, `0x78f28D363533695458696b42577D2e1728cEa3D1` GBP/USD) from `arbitrum.logs`. Requires materialized results reset after fix.
+2. **Whale Flow Tracker (6846428)**: Starknet SAFO-GBP address is 33 bytes (too long for 32-byte felt). Stellar wallets excluded from whale classification.
+3. **BUIDL omnibus rebalancing**: Contract `0x6a9da2d710bb9b700acde7cb81f10f1ff8c89041` creates large internal transfers that inflate mint/burn metrics in query 6847440
+4. **Growth 3m (6747818)**: Solana BENJI/OUSG may use wrong decimal divisor (1e6 vs 1e8); Starknet topic selector may not match actual Transfer events
+5. **CHF/USD hardcoded**: All queries use 1.13 -- update if an oracle becomes available
+6. **Competitor queries (6847260, 6803919)**: Output raw token supply without NAV price conversion for non-Spiko tickers (by design -- avoids oracle parsing bugs)
